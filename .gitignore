@@ -50,3 +50,18 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+
+
+*History/
+*.SchDocPreview
+*build/
+*.rar
+*.LOG
+*__Previews/
+
+*/Project Logs for WSN_NODE/
+*/Project Logs for WSN/
+
+*.vscode/
+
