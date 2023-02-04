@@ -1,0 +1,11 @@
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\bin\Debug\Wireless Temperature Sensor Network.exe.config
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\bin\Debug\Wireless Temperature Sensor Network.exe
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\bin\Debug\Wireless Temperature Sensor Network.pdb
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless Temperature Sensor Network.csproj.AssemblyReference.cache
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless_Temperature_Sensor_Network.Properties.Resources.resources
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless Temperature Sensor Network.csproj.GenerateResource.cache
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless Temperature Sensor Network.csproj.CoreCompileInputs.cache
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless Temperature Sensor Network.exe
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless Temperature Sensor Network.pdb
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless_Temperature_Sensor_Network.Form1.resources
+D:\GitHub\HUST_WIRELESS_SENSOR_NETWORK_20221\FIRMWARE\APP\Wireless Temperature Sensor Network\obj\Debug\Wireless_Temperature_Sensor_Network.Form2.resources

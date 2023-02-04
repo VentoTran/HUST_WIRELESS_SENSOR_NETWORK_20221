@@ -57,11 +57,14 @@ dkms.conf
 *.SchDocPreview
 *build/
 *.rar
+*.Dat
 *.LOG
 *__Previews/
 
-*/Project Logs for WSN_NODE/
-*/Project Logs for WSN/
+*Project Logs for WSN_NODE/
+*Project Logs for WSN/
+*Project Outputs for WSN_NODE/
+*Project Outputs for WSN/
 
 *.vscode/
 
