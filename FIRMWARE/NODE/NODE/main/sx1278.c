@@ -30,8 +30,29 @@
 
 #include "sx1278.h"
 
-static const char *TAG = "SX1278";
+static const char *TAG = "SX1278_NODE";
 static spi_device_handle_t spi_handle;
+
+SemaphoreHandle_t sx1278_semaphr_handle;
+sx1278_state_t sx1278_state;
+void IRAM_ATTR sx1278_intr_handler(void *arg)
+{
+    xSemaphoreGive(sx1278_semaphr_handle);
+}
+
+void sx1278_gpio_init(void)
+{
+    gpio_config_t io_config = {
+        .pin_bit_mask = BIT64(SX1278_EXTI_PIN),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_NEGEDGE,
+    };
+    gpio_config(&io_config);
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(SX1278_EXTI_PIN, sx1278_intr_handler, (void *)SX1278_EXTI_PIN);
+}
 
 void sx1278_spi_init(void)
 {
@@ -182,7 +203,7 @@ void sx1278_set_bandwidth(long band)
     sx1278_write_reg(REG_MODEM_CONFIG_1, (sx1278_read_reg(REG_MODEM_CONFIG_1) & 0x0f) | (bw << 4));
 }
 
-void sx1278_set_sf(int sf)
+void sx1278_set_sf(uint8_t sf)
 {
     if (sf < 6 || sf > 12)
     {
@@ -203,7 +224,7 @@ void sx1278_set_sf(int sf)
     sx1278_write_reg(REG_MODEM_CONFIG_2, (sx1278_read_reg(REG_MODEM_CONFIG_2) & 0x0f) | ((sf << 4) & 0xf0));
 }
 
-void sx1278_set_cr(int cr)
+void sx1278_set_cr(uint8_t cr)
 {
     if (cr < 5 || cr > 8)
     {
@@ -215,7 +236,7 @@ void sx1278_set_cr(int cr)
     sx1278_write_reg(REG_MODEM_CONFIG_1, (sx1278_read_reg(REG_MODEM_CONFIG_1) & 0xf1) | (cr << 1));
 }
 
-void sx1278_set_header(bool en, int size)
+void sx1278_set_header(bool en, uint32_t size)
 {
     if (en)
         sx1278_write_reg(REG_MODEM_CONFIG_1, sx1278_read_reg(REG_MODEM_CONFIG_1) & 0xfe);
@@ -250,6 +271,12 @@ float sx1278_get_snr(void)
     return ((int8_t)sx1278_read_reg(REG_PKT_SNR_VALUE) * 0.25);
 }
 
+void sx1278_set_irq(int intr_pin, uint8_t val)
+{
+    if (intr_pin <= 3)
+        sx1278_write_reg(REG_DIO_MAPPING_1, val);
+}
+
 void sx1278_init(void)
 {
     sx1278_reset();
@@ -258,7 +285,7 @@ void sx1278_init(void)
     sx1278_standby();
     sx1278_write_reg(REG_FIFO_RX_BASE_ADDR, 0x00);
     sx1278_write_reg(REG_FIFO_TX_BASE_ADDR, 0x00);
-    sx1278_set_LNA_gain(1);
+    sx1278_set_LNA_gain(0);
     sx1278_set_tx_power(8); // Pout = 10 dBm (10 mW)
     sx1278_set_freq(433E6);
     sx1278_set_bandwidth(250E3); // Bandwidth: 250 kHz
@@ -267,6 +294,7 @@ void sx1278_init(void)
     sx1278_set_preamble(12);
     sx1278_set_header(true, 0);
     sx1278_set_crc(true);
+    sx1278_set_irq(0, 0x00);
     sx1278_sleep();
 }
 
@@ -289,51 +317,64 @@ void sx1278_send_data(uint8_t *data_send, int size)
     sx1278_sleep();
 }
 
-void sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr)
+void sx1278_start_recv_data(void)
 {
     sx1278_rx_contiuous();
-    while (!(sx1278_read_reg(REG_IRQ_FLAGS) & IRQ_RX_DONE_MASK))
-    {
-        vTaskDelay(10 / portTICK_RATE_MS);
-    }
-    int irq = sx1278_read_reg(REG_IRQ_FLAGS);
-    sx1278_write_reg(REG_IRQ_FLAGS, irq);
+}
 
-    if (!(irq & IRQ_RX_DONE_MASK))
+sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr, TickType_t timeout)
+{
+    if (xSemaphoreTake(sx1278_semaphr_handle, timeout) == pdTRUE)
     {
-        ESP_LOGE(TAG, "Invalid RxDone Interrupt");
-        return;
-    }
+        int irq = sx1278_read_reg(REG_IRQ_FLAGS);
+        sx1278_write_reg(REG_IRQ_FLAGS, irq);
 
-    if (irq & IRQ_PAYLOAD_CRC_ERROR_MASK)
-    {
-        ESP_LOGE(TAG, "PayloadCrcError");
-        return;
-    }
+        if (!(irq & IRQ_RX_DONE_MASK))
+        {
+            ESP_LOGE(TAG, "Invalid RxDone Interrupt");
+            return SX1278_INVALID_RX_DONE;
+        }
 
-    int len = sx1278_read_reg(REG_RX_NB_BYTES);
-    *rssi = sx1278_get_rssi();
-    *snr = sx1278_get_snr();
-    sx1278_standby();
-    sx1278_write_reg(REG_FIFO_ADDR_PTR, sx1278_read_reg(REG_FIFO_RX_CURRENT_ADDR));
-    for (int index = 0; index < len; index++)
-    {
-        data_recv[index] = sx1278_read_reg(REG_FIFO);
+        if (!(irq & IRQ_VALID_HEADER_MASK))
+        {
+            ESP_LOGE(TAG, "Invalid Header Interrupt");
+            return SX1278_INVALID_HEADER;
+        }
+
+        if (irq & IRQ_PAYLOAD_CRC_ERROR_MASK)
+        {
+            ESP_LOGE(TAG, "Payload Crc Error Interrupt");
+            return SX1278_PAYLOAD_CRC_ERROR;
+        }
+
+        int len = sx1278_read_reg(REG_RX_NB_BYTES);
+        *rssi = sx1278_get_rssi();
+        *snr = sx1278_get_snr();
+        sx1278_standby();
+        sx1278_write_reg(REG_FIFO_ADDR_PTR, sx1278_read_reg(REG_FIFO_RX_CURRENT_ADDR));
+        for (int index = 0; index < len; index++)
+        {
+            data_recv[index] = sx1278_read_reg(REG_FIFO);
+        }
+        sx1278_sleep();
+        return SX1278_OK;
     }
-    sx1278_sleep();
+    else
+        return SX1278_NOT_OK;
 }
 
 void sx1278_task(void *param)
 {
-    uint8_t data_send[100] = {0};
+    uint8_t data_recv[100] = {0};
+    float snr;
+    int rssi;
     int cnt = 0;
+    sx1278_gpio_init();
     sx1278_spi_init();
     sx1278_init();
+    sx1278_semaphr_handle = xSemaphoreCreateBinary();
     while (1)
     {
-        memset((char *)data_send, '\0', sizeof(data_send));
-        sprintf((char *)data_send, "%s_%d", BUFF, cnt++);
-        sx1278_send_data(data_send, strlen((char *)data_send));
-        vTaskDelay(5000);
+        
     }
 }

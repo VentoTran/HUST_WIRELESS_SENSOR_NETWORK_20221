@@ -30,7 +30,7 @@
 
 #include "sx1278.h"
 
-static const char *TAG = "SX1278";
+static const char *TAG = "SX1278_GATEWAY";
 static spi_device_handle_t spi_handle;
 
 void sx1278_spi_init(void)
@@ -182,7 +182,7 @@ void sx1278_set_bandwidth(long band)
     sx1278_write_reg(REG_MODEM_CONFIG_1, (sx1278_read_reg(REG_MODEM_CONFIG_1) & 0x0f) | (bw << 4));
 }
 
-void sx1278_set_sf(int sf)
+void sx1278_set_sf(uint8_t sf)
 {
     if (sf < 6 || sf > 12)
     {
@@ -203,7 +203,7 @@ void sx1278_set_sf(int sf)
     sx1278_write_reg(REG_MODEM_CONFIG_2, (sx1278_read_reg(REG_MODEM_CONFIG_2) & 0x0f) | ((sf << 4) & 0xf0));
 }
 
-void sx1278_set_cr(int cr)
+void sx1278_set_cr(uint8_t cr)
 {
     if (cr < 5 || cr > 8)
     {
@@ -215,7 +215,7 @@ void sx1278_set_cr(int cr)
     sx1278_write_reg(REG_MODEM_CONFIG_1, (sx1278_read_reg(REG_MODEM_CONFIG_1) & 0xf1) | (cr << 1));
 }
 
-void sx1278_set_header(bool en, int size)
+void sx1278_set_header(bool en, uint32_t size)
 {
     if (en)
         sx1278_write_reg(REG_MODEM_CONFIG_1, sx1278_read_reg(REG_MODEM_CONFIG_1) & 0xfe);
@@ -258,7 +258,7 @@ void sx1278_init(void)
     sx1278_standby();
     sx1278_write_reg(REG_FIFO_RX_BASE_ADDR, 0x00);
     sx1278_write_reg(REG_FIFO_TX_BASE_ADDR, 0x00);
-    sx1278_set_LNA_gain(1);
+    sx1278_set_LNA_gain(0);
     sx1278_set_tx_power(8); // Pout = 10 dBm (10 mW)
     sx1278_set_freq(433E6);
     sx1278_set_bandwidth(250E3); // Bandwidth: 250 kHz
@@ -327,19 +327,21 @@ sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr)
         data_recv[index] = sx1278_read_reg(REG_FIFO);
     }
     sx1278_sleep();
+    return SX1278_OK;
 }
 
 void sx1278_task(void *param)
 {
-    uint8_t data_recv[100] = {0};
-    float snr;
-    int rssi;
+    uint8_t data_send[100] = {0};
+    int cnt = 0;
     sx1278_spi_init();
     sx1278_init();
     while (1)
     {
-        sx1278_recv_data(data_recv, &rssi, &snr);
-        ESP_LOGI(TAG, "data_recv: %s, rssi: %d, snr: %f", (char *)data_recv, rssi, snr);
-        // vTaskDelay(1000);
+        memset((char *)data_send, '\0', sizeof(data_send));
+        sprintf((char *)data_send, "%s_%d", BUFF, ++cnt);
+        ESP_LOGI(TAG, "send packet cnt: %d", cnt);
+        sx1278_send_data(data_send, strlen((char *)data_send));
+        vTaskDelay(5000);
     }
 }
