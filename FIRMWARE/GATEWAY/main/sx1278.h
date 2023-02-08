@@ -78,6 +78,8 @@
 
 #define TIMEOUT_RESET                   100
 
+#define BUFF "VANPERDUNG VANPERDUNG VANPERDUNG VANPERDUNG"
+
 typedef enum
 {
     SX1278_OK,

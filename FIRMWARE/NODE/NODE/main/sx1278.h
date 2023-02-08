@@ -71,13 +71,27 @@
 #define IRQ_TX_DONE_MASK                0x08
 #define IRQ_PAYLOAD_CRC_ERROR_MASK      0x20
 #define IRQ_RX_DONE_MASK                0x40
+#define IRQ_VALID_HEADER_MASK           0x10
 
 #define PA_OUTPUT_RFO_PIN               0
 #define PA_OUTPUT_PA_BOOST_PIN          1
 
 #define TIMEOUT_RESET                   100
 
-#define BUFF "VANPERDUNG VANPERDUNG"
+typedef enum
+{
+    SX1278_OK,
+    SX1278_NOT_OK,
+    SX1278_INVALID_RX_DONE,
+    SX1278_PAYLOAD_CRC_ERROR,
+    SX1278_INVALID_HEADER
+} sx1278_err_t;
+
+typedef enum
+{
+    PROVISIONING,
+    CONVERSATION,
+} sx1278_state_t;
 
 void sx1278_task(void *param);
 

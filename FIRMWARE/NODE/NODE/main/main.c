@@ -40,8 +40,4 @@
 void app_main(void)
 {
     xTaskCreate(sx1278_task, "SX1278", 4096, NULL, 5, NULL);
-    xTaskCreate(audio_task, "AUDIO", 4096, NULL, 5, NULL);
-
-
-    
 }

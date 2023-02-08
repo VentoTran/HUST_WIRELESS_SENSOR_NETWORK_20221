@@ -1,0 +1,72 @@
+Qui định bản tin:
+1. Quá trình Provisioning:
+	a. Sensor Node: Node sẽ Uplink theo chu kỳ (Beacon), sau đó Downlink đến nhận được RX ACK từ Gateway để config chu kỳ lấy mẫu, ngưỡng, slot_id.
+		- Uplink:
+			TX: 	| node_id | join | crc |
+			Len:	|    2    |  4   |  1  |
+			RX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			RX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+		- Downlink: (nên gửi ACK và NACK nhiều lần ?)
+			RX Cfg: | node_id | gate_id | {period} | {threshold} | {timerstamp} | {total_slot} | {slot_id} | crc |
+			Len:    |    2    |    2    |     4    |      4      |       4      |       1      |     1     |  1  |
+			TX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			TX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+	b. Gateway: Gateway nhận được beacon của Sensor node thì sẽ gửi đi config chu kỳ lấy mẫu, ngưỡng, slot_id.
+		- Downlink:
+			RX: 	| node_id | join | crc |
+			Len:	|    2    |  4   |  1  |
+			TX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			TX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+		- Uplink:
+			TX Cfg: | node_id | gate_id | {period} | {threshold} | {timerstamp} | {total_slot} | {slot_id} | crc |
+			Len:    |    2    |    2    |     4    |      4      |       4      |       1      |     1     |  1  |
+			RX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			RX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+			
+2. 	Quá trình truyền - nhận:
+	a. Sensor Node:
+		- Uplink: 
+			TX: 	| node_id | gate_id | {temp} | {battery} | {period} | {threshold} | crc |
+			Len:    |    2    |    2    |   4    |     4     |     4    |      4      |  1  |
+			RX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			RX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+		- Downlink:
+			Nếu period và threshold ở TX Uplink không đúng hoặc có yêu cầu thay đổi chu kỳ, ngưỡng từ Server:
+				RX Cfg: | node_id | gate_id | {period} | {threshold} | {timer_sync} | crc |
+				Len:    |    2    |    2    |     4    |      4      |       4      |  1  |
+			Nếu period và threshold ở TX Uplink đúng:
+				RX Cfg: | node_id | gate_id | {timer_sync} | crc |
+				Len: 	| 	 2    |    2    |       4      |  1  |
+			TX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			TX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+	b. Gateway:
+		- Downlink:
+			RX: 	| node_id | gate_id | {temp} | {battery} | {period} | {threshold} | crc |
+			Len:    |    2    |    2    |   4    |     4     |     4    |      4      |  1  |
+			TX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			TX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
+		- Uplink:
+			Nếu period và threshold ở RX Downlink không đúng hoặc có yêu cầu thay đổi chu kỳ, ngưỡng từ Server:
+				TX Cfg: | node_id | gate_id | {period} | {threshold} | {timer_sync} | crc |
+				Len:    |    2    |    2    |     4    |      4      |       4      |  1  |
+			Nếu period và threshold ở RX Downlink đúng:
+				TX Cfg: | node_id | gate_id | {timer_sync} | crc |
+				Len: 	| 	 2    |    2    |       4      |  1  |
+			RX ACK: | node_id | gate_id | 0x06 | crc |
+			Len:	|    2    |    2    |  1   |  1	 |
+			RX NACK:| node_id | gate_id | 0x15 | crc |
+			Len: 	|	 2    |    2    |  1   |  1  |
