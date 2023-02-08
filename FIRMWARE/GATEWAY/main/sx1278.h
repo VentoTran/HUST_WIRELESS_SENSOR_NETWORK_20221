@@ -24,8 +24,14 @@
 #define SX1278_MISO_PIN GPIO_NUM_19
 #define SX1278_NSS_PIN GPIO_NUM_14
 #define SX1278_SCK_PIN GPIO_NUM_18
-#define SX1278_EXTI_PIN GPIO_NUM_32
+#define SX1278_DIO0_PIN GPIO_NUM_32
+#define SX1278_DIO4_PIN GPIO_NUM_35
+#define SX1278_DIO3_PIN GPIO_NUM_34
 #define SX1278_RST_PIN GPIO_NUM_33
+
+#define SX1278_DIO0_BIT BIT0
+#define SX1278_DIO3_BIT BIT1
+#define SX1278_DIO4_BIT BIT2
 
 // Register definitions
 #define REG_FIFO                        0x00
@@ -63,6 +69,7 @@
 #define MODE_TX                         0x03
 #define MODE_RX_CONTINUOUS              0x05
 #define MODE_RX_SINGLE                  0x06
+#define MODE_CAD                        0x07
 
 // PA configuration
 #define PA_BOOST                        0x80
@@ -78,7 +85,19 @@
 
 #define TIMEOUT_RESET                   100
 
+#define ACK 0x06
+#define NACK 0x15
+
+#define UPLINK_TX_REQUEST_OPCODE 0x7972
+#define DOWNLINK_RX_DATA_OPCODE 0x7931
+
 #define BUFF "VANPERDUNG VANPERDUNG VANPERDUNG VANPERDUNG"
+
+#define NW_DEFAULT_TOTAL_SLOTS 10
+#define NW_DEFAULT_PERIOD 5.0
+#define NW_DEFAULT_THRESHOLD 25.0
+
+typedef uint16_t sx1278_opcode_type_t;
 
 typedef enum
 {
@@ -89,6 +108,54 @@ typedef enum
     SX1278_INVALID_HEADER
 } sx1278_err_t;
 
-void sx1278_task(void *param);
+typedef union
+{
+    float float_val;
+    uint8_t bytes[4];
+} float_bytes;
 
+typedef struct 
+{
+    uint16_t node_id;
+    uint16_t slot_id;
+    float_bytes period; 
+    float_bytes threshold;
+    float_bytes temp;
+    float_bytes battery;
+} sx1278_node_slot_t;
+
+typedef struct 
+{
+    sx1278_opcode_type_t opcode;
+    uint16_t node_id;
+    uint16_t gate_id;
+    float_bytes temp;
+    float_bytes battery;
+    float_bytes period;
+    float_bytes threshold;
+    uint8_t prov_data[10];
+    uint8_t crc;
+} sx1278_packet_t;
+
+typedef struct 
+{
+    float_bytes threshold[NW_DEFAULT_TOTAL_SLOTS];
+    float_bytes period;
+} sx1278_attr_cfg_t;
+
+typedef struct 
+{
+    bool network_run;
+} sx1278_flag_t;
+
+typedef struct 
+{
+    uint8_t total_slots;
+    uint16_t gate_id;
+    sx1278_node_slot_t node_slots[NW_DEFAULT_TOTAL_SLOTS];
+    sx1278_flag_t flags;
+} sx1278_network_t;
+
+void sx1278_task(void *param);
+sx1278_err_t parse_packet(uint8_t *packet_data, sx1278_packet_t *packet);
 #endif

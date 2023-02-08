@@ -4,3 +4,6 @@ Chức năng vật lý trên Node: (3 LED, 3 BUTTON)
 	BUTTON 1: Bắt đầu đo.
 	BUTTON 2: Dừng đo.
 	BUTTON 3: Hiển thị điện áp pin lên led 7 thanh, chu kỳ đo, ngưỡng hiện tại.
+	
+Bắt đầu đo: Cho node vào quá trình Provisioning.
+Dừng đo: Tắt luôn LoRa.

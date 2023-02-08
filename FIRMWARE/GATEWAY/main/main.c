@@ -36,8 +36,10 @@
 #include "driver/spi_master.h"
 
 #include "sx1278.h"
+#include "uart_user.h"
 
 void app_main(void)
 {
-    xTaskCreate(sx1278_task, "SX1278", 4096, NULL, 5, NULL);
+    xTaskCreate(&sx1278_task, "SX1278", 4096, NULL, 5, NULL);
+    xTaskCreate(&uart_user_task, "UART USER", 4096, NULL, 6, NULL);
 }
