@@ -67,18 +67,28 @@ void Error_Handler(void);
 #define VBAT_GPIO_Port GPIOA
 #define CS1_Pin GPIO_PIN_4
 #define CS1_GPIO_Port GPIOA
-#define LoRa_EXTI_Pin GPIO_PIN_12
-#define LoRa_EXTI_GPIO_Port GPIOB
+#define LoRa_EXTI2_Pin GPIO_PIN_12
+#define LoRa_EXTI2_GPIO_Port GPIOB
+#define LoRa_EXTI2_EXTI_IRQn EXTI15_10_IRQn
 #define CS2_Pin GPIO_PIN_8
 #define CS2_GPIO_Port GPIOA
 #define LoRa_RST_Pin GPIO_PIN_15
 #define LoRa_RST_GPIO_Port GPIOA
 #define BT0_Pin GPIO_PIN_3
 #define BT0_GPIO_Port GPIOB
+#define BT0_EXTI_IRQn EXTI3_IRQn
 #define BT1_Pin GPIO_PIN_4
 #define BT1_GPIO_Port GPIOB
+#define BT1_EXTI_IRQn EXTI4_IRQn
 #define BT2_Pin GPIO_PIN_5
 #define BT2_GPIO_Port GPIOB
+#define BT2_EXTI_IRQn EXTI9_5_IRQn
+#define LoRa_EXTI0_Pin GPIO_PIN_6
+#define LoRa_EXTI0_GPIO_Port GPIOB
+#define LoRa_EXTI0_EXTI_IRQn EXTI9_5_IRQn
+#define LoRa_EXTI1_Pin GPIO_PIN_7
+#define LoRa_EXTI1_GPIO_Port GPIOB
+#define LoRa_EXTI1_EXTI_IRQn EXTI9_5_IRQn
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
