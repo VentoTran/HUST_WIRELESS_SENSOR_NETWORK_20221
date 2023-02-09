@@ -1,0 +1,7 @@
+Channel Activity Detection Mode 
+
+Được thiết kế ra để phát hiện LoRa preamble ở radio channel với khả năng tiết kiệm năng lượng nhất. Một khi ở CAD mode, SX1278 sẽ tiến hành một quá trình scan rất nhanh để phát hiện preamble packet.
+
+Ở CAD mode, các quá trình sau được diễn ra:
+	- The PLL locks.
+	- Radio receiver captures LoRa preamble from the channel. The radio current consumption during that phase corresponds to the specified RX mode current.

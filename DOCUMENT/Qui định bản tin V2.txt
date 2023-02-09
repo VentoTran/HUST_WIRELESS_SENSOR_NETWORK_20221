@@ -1,0 +1,14 @@
+SENSOR NODE
+	1. RX REQUEST:
+		| opcode | node_id | gate_id | {period} | {threshold} | crc | (opcode: 0x7972)
+	
+		| opcode | node_id | gate_id | {threshold} | {time_sync} | crc | (opcode: 0x7986)
+	
+	2. TX DATA:
+		| opcode | node_id | gate_id | {temp} | {battery} | {period} | {threshold} | crc | (opcode: 0x7931)
+		
+	3. RX ACK:
+		RX ACK: | opcode | node_id | gate_id | 0x06 | crc | (opcode: 0x7906)
+		
+		
+

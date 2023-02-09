@@ -1,0 +1,16 @@
+Khi bắt đầu đo, Node ở chế độ RX liên tục. Mặc định Period là 0 và Threshold là 0.
+Sau khi thêm hết tất cả các Node thì user chọn bắt đầu mạng, Gateway gửi bản tin đầu tiên là config đi.
+
+KHUNG UART
+
+Thêm node: {"action":"add_node","node_id":-1,"slot_id":-1,"threshold":-1}
+Phản hổi thành công: 	ACK
+						ACTION:add_node. NODE_ID:-1. SLOT_ID:-1. THRESHOLD:-1.
+Phản hồi thất bại: 	
+
+Config Period: {"action":"cfg_period","period":-1}
+
+Config Threshold: {"action":"cfg_threshold","threshold":-1}					
+
+Bắt đầu hoạt động: {"action":"start"}
+ 
