@@ -67,6 +67,16 @@ void Error_Handler(void);
 #define VBAT_GPIO_Port GPIOA
 #define CS1_Pin GPIO_PIN_4
 #define CS1_GPIO_Port GPIOA
+#define SCK_Pin GPIO_PIN_5
+#define SCK_GPIO_Port GPIOA
+#define SER_Pin GPIO_PIN_7
+#define SER_GPIO_Port GPIOA
+#define DQ_Pin GPIO_PIN_0
+#define DQ_GPIO_Port GPIOB
+#define DIG2_Pin GPIO_PIN_10
+#define DIG2_GPIO_Port GPIOB
+#define DIG3_Pin GPIO_PIN_11
+#define DIG3_GPIO_Port GPIOB
 #define LoRa_EXTI2_Pin GPIO_PIN_12
 #define LoRa_EXTI2_GPIO_Port GPIOB
 #define LoRa_EXTI2_EXTI_IRQn EXTI15_10_IRQn
@@ -89,6 +99,11 @@ void Error_Handler(void);
 #define LoRa_EXTI1_Pin GPIO_PIN_7
 #define LoRa_EXTI1_GPIO_Port GPIOB
 #define LoRa_EXTI1_EXTI_IRQn EXTI9_5_IRQn
+#define DIG0_Pin GPIO_PIN_8
+#define DIG0_GPIO_Port GPIOB
+#define DIG1_Pin GPIO_PIN_9
+#define DIG1_GPIO_Port GPIOB
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

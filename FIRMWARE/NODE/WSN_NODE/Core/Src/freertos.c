@@ -26,6 +26,17 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "spi.h"
+#include "tim.h"
+#include "adc.h"
+#include "gpio.h"
+#include "usart.h"
+
+#include "DS18B20.h"
+#include "74HC595.h"
+
+
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,7 +69,14 @@ const osThreadAttr_t myTask01_attributes = {
 osThreadId_t myTask02Handle;
 const osThreadAttr_t myTask02_attributes = {
   .name = "myTask02",
-  .stack_size = 256 * 4,
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for myTask03 */
+osThreadId_t myTask03Handle;
+const osThreadAttr_t myTask03_attributes = {
+  .name = "myTask03",
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -69,6 +87,7 @@ const osThreadAttr_t myTask02_attributes = {
 
 void Task01(void *argument);
 void Task02(void *argument);
+void Task03(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -105,6 +124,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of myTask02 */
   myTask02Handle = osThreadNew(Task02, NULL, &myTask02_attributes);
 
+  /* creation of myTask03 */
+  myTask03Handle = osThreadNew(Task03, NULL, &myTask03_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -125,11 +147,13 @@ void MX_FREERTOS_Init(void) {
 void Task01(void *argument)
 {
   /* USER CODE BEGIN Task01 */
+
   /* Infinite loop */
   for(;;)
   {
     osDelay(500);
     HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
+    
   }
   /* USER CODE END Task01 */
 }
@@ -147,47 +171,46 @@ void Task02(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(100);
+    HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
   }
   /* USER CODE END Task02 */
 }
 
+/* USER CODE BEGIN Header_Task03 */
+/**
+* @brief Function implementing the myTask03 thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Task03 */
+void Task03(void *argument)
+{
+  /* USER CODE BEGIN Task03 */
+
+  
+  HAL_GPIO_WritePin(DIG0_GPIO_Port, DIG0_Pin, 1);
+  HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, 1);
+  HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, 1);
+  HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, 1);
+
+  HC595_Init();
+  // HC595_SendByte(0xFF);
+
+  uint8_t t = 0;
+
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(100);
+    HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+    HC595_SendByte(t++);
+  }
+  /* USER CODE END Task03 */
+}
+
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-  if (GPIO_Pin == GPIO_PIN_3)
-  {
-
-  }
-  else if (GPIO_Pin == GPIO_PIN_4)
-  {
-
-  }
-  else if (GPIO_Pin == GPIO_PIN_5)
-  {
-
-  }
-  else if (GPIO_Pin == GPIO_PIN_6)
-  {
-
-  }
-  else if (GPIO_Pin == GPIO_PIN_7)
-  {
-
-  }
-  else if (GPIO_Pin == GPIO_PIN_12)
-  {
-
-  }
-}
-
 
 /* USER CODE END Application */
 
