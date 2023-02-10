@@ -39,6 +39,8 @@
 #include "common.h"
 
 #include "adc.h"
+#include "iwdg.h"
+#include "rtc.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,18 +64,30 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
+RTC_TimeTypeDef stime = {
+  .Hours = 0,
+  .Minutes = 0,
+  .Seconds = 0
+};
 
-uint32_t adc[22] = {0};
+RTC_AlarmTypeDef salarm = {
+  .Alarm = 0,
+  .AlarmTime.Hours = 0,
+  .AlarmTime.Minutes = 0,
+  .AlarmTime.Seconds = 3,
+};
+
 
 bool isButtonPress = false;
 bool isSleep = false;
+bool isIndicate = false;
 
 uint8_t btPressed = 0xFF;
 
 static const char *TAG = "FREERTOS";
 EventGroupHandle_t sx1278_evt_group;
 extern sx1278_node_t sx1278_node;
-
+BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -116,14 +130,13 @@ void sx1278_task(void *param)
 
 void peripheral_task(void *param)
 {
-
+  
   DS18B20_Init(DS18B20_Resolution_12bits);
   displayInit();
 
-  HAL_ADC_Start_DMA(&hadc1, adc, 20);
-  
   static uint8_t sw = 0;
   uint16_t ADC_VREF_mV = 3300;
+  uint32_t adc[22] = {0};
 
   HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
@@ -132,19 +145,21 @@ void peripheral_task(void *param)
   float temperature = 0;
   float battery = 0;
 
-  HAL_TIM_Base_Start_IT(&htim4);
+  // HAL_TIM_Base_Start_IT(&htim4);
+  HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+  HAL_RTC_SetAlarm_IT(&hrtc, &salarm, RTC_FORMAT_BCD);
 
   uint32_t timeKeeper0 = HAL_GetTick();
   uint32_t timeKeeper1 = HAL_GetTick() - 2000;
   uint32_t timeKeeper2 = HAL_GetTick();
-  uint32_t timeKeeper3 = HAL_GetTick();
 
 	while(1)
 	{
     timeKeeper0 = HAL_GetTick();
     timeKeeper1 = HAL_GetTick() - 2000;
     timeKeeper2 = HAL_GetTick();
-    timeKeeper3 = HAL_GetTick();
+    HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
+    HAL_ADC_Start_DMA(&hadc1, adc, 20);
     while ((HAL_GetTick() - timeKeeper2) <= 6000)
     {
       if ((HAL_GetTick() - timeKeeper0) >= 1000)
@@ -203,7 +218,7 @@ void peripheral_task(void *param)
       battery = (float)(((float)adc[20] * RATIO * ADC_VREF_mV / ADC_RESOLUTION) / 1000) - 0.1;
       ftoa((double)temperature, sx1278_node.temp, 2);
       ftoa((double)battery, sx1278_node.battery, 2);
-      HAL_Delay(100);
+      HAL_Delay(1000);
     }
     HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
@@ -213,14 +228,12 @@ void peripheral_task(void *param)
     sw = 0;
     isButtonPress = false;
     isSleep = true;
+    HAL_IWDG_Refresh(&hiwdg);
 		vTaskDelay(1 / portTICK_RATE_MS);
 	}
 }
 
-void vTimerCallback(TimerHandle_t xTimer)
-{
-  
-}
+
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -256,11 +269,56 @@ __weak void vApplicationIdleHook( void )
 
     HAL_SuspendTick();
 
-    HAL_PWR_EnterSLEEPMode(1, PWR_SLEEPENTRY_WFI);
+    // HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_SLEEPENTRY_WFI);
   }
 
-
 }
+
+void restartCLK(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_RTC|RCC_PERIPHCLK_ADC;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
 /* USER CODE END 2 */
 
 /* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
@@ -309,7 +367,6 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
-  // xTimerCreate("stimer0", 2000/portTICK_RATE_MS, pdTRUE, NULL, vTimerCallback);
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -352,11 +409,20 @@ void StartDefaultTask(void const * argument)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  if (isSleep == true)
+  {
+    restartCLK();
+    HAL_ResumeTick();
+    isSleep = false;
+  }
 
   if ((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 0) && (isButtonPress == false) && (GPIO_Pin != GPIO_PIN_12))
   {
     isButtonPress = true;
+
+    __HAL_TIM_SetCounter(&htim4, 0);
+    HAL_TIM_Base_Start_IT(&htim4);
+
     if (GPIO_Pin == BT0_Pin)
     {
       btPressed = 0;
@@ -379,15 +445,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	{
 		xEventGroupSetBitsFromISR(sx1278_evt_group, SX1278_DIO0_BIT, &xHigherPriorityTaskWoken);
 	}
-
-  if (isSleep == true)
-  {
-    HAL_ResumeTick();
-    HAL_ADC_Start_DMA(&hadc1, adc, 20);
-    // displayResume();
-    
-    isSleep = false;
-  }
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -409,20 +466,33 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
   if (htim->Instance == TIM4)
   {
-    if (isSleep == true)
+    HAL_TIM_Base_Stop_IT(&htim4);
+    if (HAL_GPIO_ReadPin(BT2_GPIO_Port, BT2_Pin) == 0)
     {
-      HAL_ResumeTick();
-      HAL_ADC_Start_DMA(&hadc1, adc, 20);
-      // displayResume();
-      // HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_RESET);
-      // HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-      // HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-      isSleep = false;
+      isIndicate = !isIndicate;
+      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
     }
   }
 
-
   /* USER CODE END Callback 1 */
+}
+
+void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
+{
+  if (isSleep == true)
+  {
+    restartCLK();
+    HAL_ResumeTick();
+    if (isIndicate == true)
+    {
+      displayResume();
+      HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+    }
+    isSleep = false;
+  }
 }
 
 /* USER CODE END Application */
