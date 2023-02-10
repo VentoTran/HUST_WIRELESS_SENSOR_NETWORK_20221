@@ -27,6 +27,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+#include <stdbool.h>
+#include <time.h>
 #include "sx1278.h"
 #include "common.h"
 /* USER CODE END Includes */
@@ -61,9 +68,7 @@ void MX_FREERTOS_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 static const char *TAG = "MAIN";
-int node_id;
-float temp;
-float battery;
+sx1278_node_t sx1278_node;
 /* USER CODE END 0 */
 
 /**
@@ -98,9 +103,10 @@ int main(void)
   MX_SPI2_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  node_id = get_random_value(1, 65535);
-  char data_log[10];
-  sprintf(data_log, "0x%04x", node_id);
+//  sx1278_node.node_id = get_random_value(1, 99);
+  sx1278_node.node_id = 6;
+  char data_log[20];
+  sprintf(data_log, "node_id: %d", sx1278_node.node_id);
   LOG(TAG, data_log);
   /* USER CODE END 2 */
 

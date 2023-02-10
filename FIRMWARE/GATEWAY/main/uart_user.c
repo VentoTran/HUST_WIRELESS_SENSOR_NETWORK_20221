@@ -31,6 +31,8 @@
 #include "mqtt_client.h"
 #include "esp_spiffs.h"
 #include "esp_err.h"
+#include "esp_attr.h"
+#include "esp_http_server.h"
 
 #include "driver/gpio.h"
 #include "driver/uart.h"
@@ -136,9 +138,9 @@ void uart_user_task(void *param)
             {
                 if (uart_check_action(uart_obj) == ESP_OK)
                 {
-                    ESP_LOGI(TAG, "NODE_ID: 0x%04x, SLOT_ID: %d, THRESHOLD: %f", uart_obj.node_id, uart_obj.slot_id, uart_obj.threshold);
-                    sx1278_network.node_slots[uart_obj.slot_id].node_id = (uint16_t)uart_obj.node_id;
-                    attr_cfg_temp.threshold[uart_obj.slot_id].float_val = (float)uart_obj.threshold;
+                    ESP_LOGI(TAG, "NODE_ID: %d, SLOT_ID: %d, THRESHOLD: %f", uart_obj.node_id, uart_obj.slot_id, (float)uart_obj.threshold);
+                    sx1278_network.node_slots[uart_obj.slot_id].node_id = uart_obj.node_id;
+                    attr_cfg_temp.threshold[uart_obj.slot_id] = (float)uart_obj.threshold;
                 }
             }
             else if (strcmp(uart_obj.action, "cfg_period") == 0)
@@ -146,7 +148,7 @@ void uart_user_task(void *param)
                 if (uart_check_action(uart_obj) == ESP_OK)
                 {
                     ESP_LOGI(TAG, "PERIOD: %d", uart_obj.period);
-                    attr_cfg_temp.period.float_val = (float)uart_obj.period;
+                    attr_cfg_temp.period = uart_obj.period;
                 }
             }
             else if (strcmp(uart_obj.action, "start") == 0)

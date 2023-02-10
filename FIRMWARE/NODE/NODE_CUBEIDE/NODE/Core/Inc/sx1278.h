@@ -55,26 +55,22 @@
 #define IRQ_PAYLOAD_CRC_ERROR_MASK      0x20
 #define IRQ_RX_DONE_MASK                0x40
 #define IRQ_VALID_HEADER_MASK           0x10
+#define IRQ_CAD_DETECTED_MASK			0x01
+#define IRQ_CAD_DONE_MASK				0x04
 
 #define PA_OUTPUT_RFO_PIN               0
 #define PA_OUTPUT_PA_BOOST_PIN          1
 
 #define TIMEOUT_RESET                   100
 
-#define DOWNLINK_RX_REQUEST_OPCODE 0x7972
-#define UPLINK_TX_RESPOND_OPCODE 0x7931
+#define DOWNLINK_RX_REQUEST_OPCODE 10
+#define UPLINK_TX_RESPOND_OPCODE 20
 
 #define SX1278_DIO0_BIT (1 << 0)
 #define SX1278_DIO3_BIT (1 << 1)
 #define SX1278_DIO4_BIT (1 << 2)
 
-typedef uint16_t sx1278_opcode_type_t;
-
-typedef union
-{
-    float float_val;
-    uint8_t bytes[4];
-} float_bytes;
+typedef int sx1278_opcode_type_t;
 
 typedef enum
 {
@@ -87,25 +83,23 @@ typedef enum
 
 typedef struct
 {
-    sx1278_opcode_type_t opcode;
-    uint16_t node_id;
-    uint16_t gate_id;
-    float_bytes period;
-    float_bytes threshold;
+    char opcode[5];
+    char node_id[5];
+    char gate_id[5];
+    char period[5];
+    char threshold[10];
     uint8_t crc;
 } sx1278_packet_t;
 
 typedef struct
 {
-    sx1278_opcode_type_t opcode;
-    uint16_t node_id;
-    uint16_t gate_id;
-    float_bytes temp;
-    float_bytes battery;
-    float_bytes period;
-    float_bytes threshold;
-    uint8_t crc;
-} sx1278_respond_t;
+    int node_id;
+    int gate_id;
+    char temp[10];
+    char battery[10];
+    int period;
+    char threshold[10];
+} sx1278_node_t;
 
 uint8_t sx1278_read_reg(uint8_t reg);
 void sx1278_write_reg(uint8_t reg, uint8_t val);
@@ -131,8 +125,8 @@ void sx1278_set_irq(uint8_t val);
 void sx1278_init(void);
 void sx1278_send_data(uint8_t *data_send, int size);
 void sx1278_start_recv_data(void);
-sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr, sx1278_packet_t *packet);
-sx1278_err_t parse_packet(uint8_t *packet_data, sx1278_packet_t *packet);
+sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr, sx1278_node_t *node);
+sx1278_err_t parse_packet(uint8_t *packet_data, sx1278_node_t *node);
 int get_random_value(int min, int max);
 bool listen_before_talk(void);
 uint8_t get_crc_value(uint8_t *data, int len);
