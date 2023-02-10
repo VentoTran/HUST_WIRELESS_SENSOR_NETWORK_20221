@@ -208,22 +208,23 @@ void sensor_task(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  switch (status_measure) {
-		case START_MEASURING:
-			DS18B20_ReadAll();
-			DS18B20_StartAll();
-			for(int i = 0; i < DS18B20_Quantity(); i++)
-			{
-				if(DS18B20_GetTemperature(i, &temperature))
-				{
-					osDelay(2000);
-				}
-			}
-			break;
-		default:
-			break;
-	}
-	  osDelay(1);
+    switch (status_measure)
+    {
+      case START_MEASURING: {
+        DS18B20_ReadAll();
+        DS18B20_StartAll();
+        for(int i = 0; i < DS18B20_Quantity(); i++)
+        {
+          if(DS18B20_GetTemperature(i, &temperature))
+          {
+            osDelay(2000);
+          }
+        }
+        break;
+      }
+      default: {break;}
+	  }
+    osDelay(1);
   }
   /* USER CODE END sensor_task */
 }

@@ -253,7 +253,7 @@ uint8_t DS18B20_GetTemperature(uint8_t number, float* destination)
 
 void DS18B20_Init(DS18B20_Resolution_t resolution)
 {
-	uint8_t next = 0, i = 0, j;
+	uint8_t next = 0, i = 0, j = 0;
 	OneWire_Init(&OneWire, DS18B20_GPIO_Port, DS18B20_Pin); // Init OneWire bus
 
 	next = OneWire_First(&OneWire); // Search first OneWire device

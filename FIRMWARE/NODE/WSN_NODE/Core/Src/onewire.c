@@ -6,32 +6,37 @@
  */
 #include "tim.h"
 #include "onewire.h"
-#include "ds18b20.h"
+#include "DS18B20.h"
+#include "cmsis_os.h"
 
 /* Delay function for constant 1-Wire timings */
 void OneWire_Delay(uint16_t us)
-{
-	_DS18B20_TIMER.Instance->CNT = 0;
+{	
+	HAL_TIM_Base_Stop(&htim2);
+	__HAL_TIM_SetCounter(&htim2, 0);
+	HAL_TIM_Base_Start(&htim2);
 	while(_DS18B20_TIMER.Instance->CNT <= us);
 }
 
 /* Bus direction control */
 void OneWire_BusInputDirection(OneWire_t *onewire)
 {
+	HAL_GPIO_DeInit(DQ_GPIO_Port, DQ_Pin);
 	GPIO_InitTypeDef	GPIO_InitStruct;
 	GPIO_InitStruct.Mode = GPIO_MODE_INPUT; // Set as input
-	GPIO_InitStruct.Pull = GPIO_NOPULL; // No pullup - the pullup resistor is external
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM; // Medium GPIO frequency
+	GPIO_InitStruct.Pull = GPIO_PULLUP; // No pullup - the pullup resistor is external
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH; // Medium GPIO frequency
 	GPIO_InitStruct.Pin = onewire->GPIO_Pin; // Pin for 1-Wire bus
 	HAL_GPIO_Init(onewire->GPIOx, &GPIO_InitStruct); // Reinitialize
 }
 
 void OneWire_BusOutputDirection(OneWire_t *onewire)
 {
+	HAL_GPIO_DeInit(DQ_GPIO_Port, DQ_Pin);
 	GPIO_InitTypeDef	GPIO_InitStruct;
 	GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD; // Set as open-drain output
-	GPIO_InitStruct.Pull = GPIO_NOPULL; // No pullup - the pullup resistor is external
-	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM; // Medium GPIO frequency
+	GPIO_InitStruct.Pull = GPIO_PULLUP; // No pullup - the pullup resistor is external
+	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH; // Medium GPIO frequency
 	GPIO_InitStruct.Pin = onewire->GPIO_Pin; // Pin for 1-Wire bus
 	HAL_GPIO_Init(onewire->GPIOx, &GPIO_InitStruct); // Reinitialize
 }
@@ -39,12 +44,14 @@ void OneWire_BusOutputDirection(OneWire_t *onewire)
 /* Bus pin output state control */
 void OneWire_OutputLow(OneWire_t *onewire)
 {
-	onewire->GPIOx->BSRR = onewire->GPIO_Pin<<16; // Reset the 1-Wire pin
+	//onewire->GPIOx->BSRR = onewire->GPIO_Pin<<16; // Reset the 1-Wire pin
+	HAL_GPIO_WritePin(DQ_GPIO_Port, DQ_Pin, GPIO_PIN_RESET);
 }
 
 void OneWire_OutputHigh(OneWire_t *onewire)
 {
-	onewire->GPIOx->BSRR = onewire->GPIO_Pin; // Set the 1-Wire pin
+	// onewire->GPIOx->BSRR = onewire->GPIO_Pin; // Set the 1-Wire pin
+	HAL_GPIO_WritePin(DQ_GPIO_Port, DQ_Pin, GPIO_PIN_SET);
 }
 
 
@@ -334,19 +341,21 @@ uint8_t OneWire_CRC8(uint8_t *addr, uint8_t len) {
 /* 1-Wire initialization */
 void OneWire_Init(OneWire_t* onewire, GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin)
 {
-	HAL_TIM_Base_Start(&_DS18B20_TIMER); // Start the delay timer
+	// HAL_TIM_Base_Start(&_DS18B20_TIMER); // Start the delay timer
 
 	onewire->GPIOx = GPIOx; // Save 1-wire bus pin
 	onewire->GPIO_Pin = GPIO_Pin;
 
+	OneWire_Reset(onewire);
+
 	// 1-Wire bit bang initialization
 	OneWire_BusOutputDirection(onewire);
 	OneWire_OutputHigh(onewire);
-	HAL_Delay(100);
+	osDelay(100);
 	OneWire_OutputLow(onewire);
-	HAL_Delay(100);
+	osDelay(100);
 	OneWire_OutputHigh(onewire);
-	HAL_Delay(200);
+	osDelay(200);
 }
 
 
