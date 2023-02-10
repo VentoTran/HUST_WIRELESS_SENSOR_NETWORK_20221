@@ -27,7 +27,7 @@ extern UART_HandleTypeDef huart1;
 void LOG(const char *TAG, char *data)
 {
 	char data_log[100] = {0};
-	sprintf(data_log, "%s: %s\n", TAG, data);
+	sprintf(data_log, "%s: %s\r\n", TAG, data);
 	HAL_UART_Transmit(&huart1, data_log, strlen(data_log), 1000);
 }
 

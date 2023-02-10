@@ -25,8 +25,8 @@
 typedef struct 
 {
     char action[16];
-    uint16_t node_id;
-    uint16_t slot_id;
+    int node_id;
+    int slot_id;
     int period;
     double threshold;
 } uart_obj_t;

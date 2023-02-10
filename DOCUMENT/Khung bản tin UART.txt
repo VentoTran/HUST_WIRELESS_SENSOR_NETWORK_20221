@@ -14,3 +14,4 @@ Config Threshold: {"action":"cfg_threshold","threshold":-1}
 
 Bắt đầu hoạt động: {"action":"start"}
  
+Dừng hoạt động: {"action":"stop"}
