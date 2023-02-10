@@ -21,9 +21,13 @@ extern uint8_t digIndex;
 
 void displayInit(void);
 void displayDigit(uint8_t dig);
+
+void displayInt(int i);
 void displayFloat(float f);
+
 void displayStop(void);
 void displayResume(void);
+
 
 
 #endif  //_DISPLAY_H_

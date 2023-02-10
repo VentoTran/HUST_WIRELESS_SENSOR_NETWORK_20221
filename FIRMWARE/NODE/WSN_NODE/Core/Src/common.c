@@ -28,7 +28,7 @@ void LOG(const char *TAG, char *data)
 {
 	char data_log[100] = {0};
 	sprintf(data_log, "%s: %s\n", TAG, data);
-	HAL_UART_Transmit(&huart1, data_log, strlen(data_log), 1000);
+	HAL_UART_Transmit(&huart1, (uint8_t*)data_log, strlen(data_log), 1000);
 }
 
 void reverse(char *str, int len)

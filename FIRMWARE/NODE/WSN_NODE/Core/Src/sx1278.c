@@ -21,8 +21,6 @@
 
 #include "sx1278.h"
 #include "common.h"
-
-#include "portmacro.h"
 #include "event_groups.h"
 
 extern SPI_HandleTypeDef hspi2;
@@ -57,9 +55,9 @@ void sx1278_write_reg(uint8_t reg, uint8_t val)
 void sx1278_reset(void)
 {
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
-    vTaskDelay(10 / portTICK_RATE_MS);
+    HAL_Delay(10);
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_SET);
-    vTaskDelay(10 / portTICK_RATE_MS);
+    HAL_Delay(10);
 }
 
 void sx1278_sleep(void)
@@ -89,6 +87,7 @@ void sx1278_tx(void)
 
 void sx1278_cad(void)
 {
+	sx1278_set_irq(0x80);
     sx1278_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_CAD);
 }
 
@@ -107,12 +106,14 @@ void sx1278_set_LNA_gain(uint8_t gain)
 {
     if (gain > 6)
     {
-    	LOG(TAG, "Invalid gain");
+        LOG(TAG, "Invalid gain");
         return;
     }
 
     if (gain == 0)
+    {
         sx1278_write_reg(REG_MODEM_CONFIG_3, 0x04);
+    }
     else
     {
         sx1278_write_reg(REG_MODEM_CONFIG_3, 0x00);
@@ -232,28 +233,29 @@ void sx1278_init(void)
 	sx1278_reset();
 	uint8_t ver = sx1278_read_reg(REG_VERSION);
 	char data_log[20];
-	sprintf(data_log, "Version :0x%02x", (char)ver);
+	sprintf(data_log, "Version: 0x%02x", (char)ver);
 	LOG(TAG, data_log);
-	sx1278_standby();
+	sx1278_sleep();
     sx1278_write_reg(REG_FIFO_RX_BASE_ADDR, 0x00);
     sx1278_write_reg(REG_FIFO_TX_BASE_ADDR, 0x00);
     sx1278_set_LNA_gain(0);
-    sx1278_set_tx_power(8); // Pout = 10 dBm (10 mW)
-    sx1278_set_freq(433E6);
-    sx1278_set_bandwidth(250E3); // Bandwidth: 250 kHz
-    sx1278_set_sf(9);
+    sx1278_set_tx_power(15); // Pout = 10 dBm (10 mW)
+    sx1278_set_freq(434000000);
+    sx1278_set_bandwidth(125000); // Bandwidth: 250 kHz
+    sx1278_set_sf(7);
     sx1278_set_cr(5);
     sx1278_set_preamble(12);
     sx1278_set_header(true, 0);
     sx1278_set_crc(true);
-    sx1278_set_irq(0x00);
-    sx1278_sleep();
+//    sx1278_set_irq(0x00);
+    sx1278_standby();
 }
 
 void sx1278_send_data(uint8_t *data_send, int size)
 {
     sx1278_standby();
     sx1278_write_reg(REG_FIFO_ADDR_PTR, 0);
+    sx1278_write_reg(REG_PAYLOAD_LENGTH, 0);
     for (int index = 0; index < size; index++)
     {
         sx1278_write_reg(REG_FIFO, data_send[index]);
@@ -263,71 +265,65 @@ void sx1278_send_data(uint8_t *data_send, int size)
     sx1278_write_reg(REG_OP_MODE, MODE_LONG_RANGE_MODE | MODE_TX);
     while (!(sx1278_read_reg(REG_IRQ_FLAGS) & IRQ_TX_DONE_MASK))
     {
-        vTaskDelay(10 / portTICK_RATE_MS);
+        HAL_Delay(10);
     }
-    sx1278_write_reg(REG_IRQ_FLAGS, IRQ_TX_DONE_MASK);
-    sx1278_sleep();
+    int irq = sx1278_read_reg(REG_IRQ_FLAGS);
+    sx1278_write_reg(REG_IRQ_FLAGS, irq);
+//    sx1278_sleep();
 }
 
 void sx1278_start_recv_data(void)
 {
+	sx1278_set_irq(0x00);
     sx1278_rx_contiuous();
 }
 
-sx1278_err_t parse_packet(uint8_t *packet_data, sx1278_packet_t *packet)
+sx1278_err_t parse_packet(uint8_t *packet_data, sx1278_node_t *node)
 {
-	int packet_len = strlen((char *)packet_data);
-    packet->opcode = (uint16_t)(packet_data[0] << 8 | packet_data[1]);
-    packet->node_id = (uint16_t)(packet_data[2] << 8 | packet_data[3]);
-    packet->gate_id = (uint16_t)(packet_data[4] << 8 | packet_data[5]);
-    if (packet->node_id != node_id)
+    sx1278_packet_t packet;
+    int packet_len = strlen((char *)packet_data);
+    packet.crc = get_crc_value(packet_data, packet_len - 1);
+    if (packet.crc != packet_data[packet_len - 1])
     {
-    	return SX1278_NOT_OK;
-    }
-    if (packet->opcode == DOWNLINK_RX_REQUEST_OPCODE)
-    {
-    	if (packet_len != 15)
-    	{
-    		LOG(TAG, "ERROR: Packet len");
-    		return SX1278_NOT_OK;
-    	}
-    	else
-    	{
-            memcpy((char *)packet->period.bytes, (char *)&packet_data[6], sizeof(float));
-            memcpy((char *)packet->threshold.bytes, (char *)&packet_data[10], sizeof(float));
-            packet->crc = packet_data[15];
-            int crc_check = get_crc_value(packet_data, strlen((char *)packet_data));
-            if (crc_check != packet->crc)
-            {
-                LOG(TAG, "Error packet crc");
-                return SX1278_NOT_OK;
-            }
-            else
-            {
-            	char data_log[100];
-            	char period[5];
-            	char threshold[5];
-            	ftoa((double)packet->period.float_val, period, 1);
-            	ftoa((double)packet->threshold.float_val, threshold, 1);
-            	sprintf(data_log, "Recv packet opcode 0x%04x, period: %s, threshold: %s", packet->opcode, period, threshold);
-            	LOG(TAG, data_log);
-            	return SX1278_OK;
-            }
-    	}
+        LOG(TAG, "ERROR CRC");
+        return SX1278_NOT_OK;
     }
     else
     {
-    	char data_log[50];
-    	sprintf(data_log, "ERROR opcode: 0x%04x", packet->opcode);
+        int res = sscanf((char *)packet_data, "$,%[^,],%[^,],%[^,],%[^,],%[^,],*", packet.opcode, packet.node_id, packet.gate_id, packet.period, packet.threshold);
+        if (res < 5)
+        {
+        	LOG(TAG, "ERROR PACKET");
+            return SX1278_NOT_OK;
+        }
+        if (atoi(packet.node_id) != node->node_id)
+        {
+        	LOG(TAG, "ERROR NODE_ID");
+            return SX1278_NOT_OK;
+        }
+        if (atoi(packet.opcode) != DOWNLINK_RX_REQUEST_OPCODE)
+        {
+        	LOG(TAG, "ERROR OPCODE");
+            return SX1278_NOT_OK;
+        }
+//        if (atoi(packet.gate_id) != sx1278_network.gate_id)
+//        {
+//        	LOG(TAG, "ERROR GATE_ID");
+//            return SX1278_NOT_OK;
+//        }
+        node->gate_id = atoi(packet.gate_id);
+		node->period = atoi(packet.period);
+		strcpy(node->threshold, packet.threshold);
+		char data_log[100];
+		sprintf(data_log, "RECV PACKET: opcode:%s, period:%s, threshold:%s", packet.opcode, packet.period, packet.threshold);
         LOG(TAG, data_log);
-        return SX1278_NOT_OK;
+		return SX1278_OK;
     }
 }
-
-sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr, sx1278_packet_t *packet)
+sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr, sx1278_node_t *node)
 {
-    int irq = sx1278_read_reg(REG_IRQ_FLAGS);
     memset((char *)data_recv, '\0', strlen((char *)data_recv));
+    int irq = sx1278_read_reg(REG_IRQ_FLAGS);
     sx1278_write_reg(REG_IRQ_FLAGS, irq);
 
     if (!(irq & IRQ_RX_DONE_MASK))
@@ -357,9 +353,8 @@ sx1278_err_t sx1278_recv_data(uint8_t *data_recv, int *rssi, float *snr, sx1278_
     {
         data_recv[index] = sx1278_read_reg(REG_FIFO);
     }
-    sx1278_sleep();
-    parse_packet(data_recv, packet);
-    return SX1278_OK;
+    sx1278_standby();
+    return parse_packet(data_recv, node);
 }
 
 int get_random_value(int min, int max)
@@ -383,53 +378,37 @@ bool listen_before_talk(void)
     EventBits_t evt_bits;
     while (1)
     {
+    	xEventGroupClearBits(sx1278_evt_group, SX1278_DIO0_BIT);
         sx1278_cad();
-        evt_bits = xEventGroupWaitBits(sx1278_evt_group, SX1278_DIO3_BIT | SX1278_DIO4_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
-        if (evt_bits & SX1278_DIO3_BIT) // CadDone
+        evt_bits = xEventGroupWaitBits(sx1278_evt_group, SX1278_DIO0_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+        if(evt_bits & SX1278_DIO0_BIT)
         {
-            LOG(TAG, "Cad timeout");
+            int irq = sx1278_read_reg(REG_IRQ_FLAGS);
+            sx1278_write_reg(REG_IRQ_FLAGS, irq);
+            LOG(TAG, "CAD timeout");
+            sx1278_standby();
             return true;
         }
-        else if (evt_bits & SX1278_DIO4_BIT) // CadDetected
+        else
         {
-            sx1278_sleep();
+            int irq = sx1278_read_reg(REG_IRQ_FLAGS);
+            sx1278_write_reg(REG_IRQ_FLAGS, irq);
+            sx1278_standby();
             TickType_t time_delay = (TickType_t)get_random_value(0, 50);
-            char data_log[50];
-            sprintf(data_log, "Cad Detected, sleep in %d", (int)time_delay);
-            LOG(TAG, data_log);
-            vTaskDelay(time_delay / portTICK_RATE_MS);
+            LOG(TAG, "CAD detect");
+            HAL_Delay(time_delay);
         }
     }
 }
 
-void send_respond(sx1278_opcode_type_t opcode, sx1278_respond_t respond, uint8_t *packet)
+void send_respond(sx1278_opcode_type_t opcode, sx1278_node_t node, uint8_t *packet)
 {
-	memset((char *)packet, '\0', strlen((char *)packet));
-    packet[1] = (uint8_t)(opcode & 0x00FF);
-    packet[0] = (uint8_t)((opcode & 0xFF00) >> 8);
-    packet[3] = (uint8_t)(respond.node_id & 0x00FF);
-    packet[2] = (uint8_t)((respond.node_id & 0xFF00) >> 8);
-    packet[5] = (uint8_t)(respond.gate_id & 0x00FF);
-    packet[4] = (uint8_t)((respond.gate_id & 0xFF00) >> 8);
+    memset((char *)packet, '\0', strlen((char *)packet));
     if (opcode == UPLINK_TX_RESPOND_OPCODE)
     {
-    	for (int i = 0; i < sizeof(float); i++)
-    	{
-    		packet[6 + i] = respond.temp.bytes[i];
-    	}
-    	for (int i = 0; i < sizeof(float); i++)
-    	{
-    		packet[10 + i] = respond.battery.bytes[i];
-    	}
-        for (int i = 0; i < sizeof(float); i++)
-        {
-            packet[14 + i] = respond.period.bytes[i];
-        }
-        for (int i = 0; i < sizeof(float); i++)
-        {
-            packet[18 + i] = respond.threshold.bytes[i];
-        }
-        packet[22] = get_crc_value(packet, 22);
+        sprintf((char *)packet, "$,%d,%d,%d,%s,%s,%d,%s,*", opcode, node.node_id, node.gate_id, node.temp, node.battery, node.period, node.threshold);
+        int size = strlen((char *)packet);
+        packet[size] = get_crc_value(packet, size);
     }
     sx1278_send_data(packet, strlen((char *)packet));
 }

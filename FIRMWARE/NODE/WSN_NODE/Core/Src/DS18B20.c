@@ -47,11 +47,11 @@ uint8_t DS18B20_Read(uint8_t number, float *destination)
 	float result;
 	uint8_t i = 0;
 	uint8_t data[DS18B20_DATA_LEN];
+
 #ifdef _DS18B20_USE_CRC
 	uint8_t crc;
 
 #endif
-
 
 	if (!DS18B20_Is((uint8_t*)&ds18b20[number].Address)) // Check if sensor is DS18B20 family
 		return 0;
@@ -72,6 +72,7 @@ uint8_t DS18B20_Read(uint8_t number, float *destination)
 	if (crc != data[8])
 		return 0; // CRC invalid
 #endif
+
 	temperature = data[0] | (data[1] << 8); // Temperature is 16-bit length
 
 	OneWire_Reset(&OneWire); // Reset the bus
@@ -82,16 +83,16 @@ uint8_t DS18B20_Read(uint8_t number, float *destination)
 	{
 		case DS18B20_Resolution_9bits:
 			result = temperature*(float)DS18B20_STEP_9BIT;
-		break;
+			break;
 		case DS18B20_Resolution_10bits:
 			result = temperature*(float)DS18B20_STEP_10BIT;
-		 break;
+			break;
 		case DS18B20_Resolution_11bits:
 			result = temperature*(float)DS18B20_STEP_11BIT;
-		break;
+			break;
 		case DS18B20_Resolution_12bits:
 			result = temperature*(float)DS18B20_STEP_12BIT;
-		 break;
+			break;
 		default:
 			result = 0xFF;
 	}

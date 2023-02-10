@@ -28,6 +28,16 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+#include <stdbool.h>
+#include <time.h>
+#include "sx1278.h"
+#include "common.h"
 #include "display.h"
 
 /* USER CODE END Includes */
@@ -61,7 +71,8 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+static const char *TAG = "MAIN";
+sx1278_node_t sx1278_node;
 /* USER CODE END 0 */
 
 /**
@@ -100,7 +111,11 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+  // sx1278_node.node_id = get_random_value(1, 99);
+  sx1278_node.node_id = 6;
+  char data_log[20];
+  sprintf(data_log, "node_id: %d", sx1278_node.node_id);
+  LOG(TAG, data_log);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */

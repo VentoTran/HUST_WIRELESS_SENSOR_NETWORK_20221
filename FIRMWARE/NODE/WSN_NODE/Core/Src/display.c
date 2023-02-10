@@ -19,6 +19,18 @@ static uint8_t posPoint = 5;
 
 uint8_t digIndex = 0;
 
+void displayInt(int i)
+{
+	memset(digBuffer, '\0', sizeof(digBuffer));
+
+	digBuffer[3] = (uint8_t)(i / 1000);
+	digBuffer[2] = (uint8_t)((i % 1000) / 100);
+	digBuffer[1] = (uint8_t)((i % 100) / 10);
+	digBuffer[0] = (uint8_t)(i % 10);
+
+	posPoint = 5;
+}
+
 void displayFloat(float f)
 {
 	memset(digBuffer, '\0', sizeof(digBuffer));

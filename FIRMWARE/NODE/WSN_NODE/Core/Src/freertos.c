@@ -28,26 +28,21 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 
-#include "sx1278.h"
-#include "common.h"
-
+#include "time.h"
+#include "timers.h"
 #include "portmacro.h"
 #include "event_groups.h"
 
 #include "display.h"
 #include "DS18B20.h"
+#include "sx1278.h"
+#include "common.h"
 
 #include "adc.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
-typedef enum {
-	NOT_MEASURING,
-	START_MEASURING,
-	STOP_MEASURING
-} status_measure_t;
 
 /* USER CODE END PTD */
 
@@ -67,16 +62,17 @@ typedef enum {
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-float temperature = 0;
-float battery = 0;
 
-status_measure_t status_measure = NOT_MEASURING;
+uint32_t adc[22] = {0};
 
 bool isButtonPress = false;
+bool isSleep = false;
+
+uint8_t btPressed = 0xFF;
 
 static const char *TAG = "FREERTOS";
 EventGroupHandle_t sx1278_evt_group;
-int node_id;
+extern sx1278_node_t sx1278_node;
 
 
 /* USER CODE END Variables */
@@ -87,42 +83,34 @@ osThreadId defaultTaskHandle;
 
 void sx1278_task(void *param)
 {
-  // uint8_t data_send[128] = {0};
-  // uint8_t data_recv[128] = {0};
-  // float snr;
-  // int rssi;
-  // EventBits_t evt_bits;
-  // sx1278_packet_t packet;
-  // sx1278_respond_t respond;
-  // respond.node_id = node_id;
-  // sx1278_init();
-	// sx1278_evt_group = xEventGroupCreate();
-	while (1)
+  uint8_t data_send[128] = {0};
+  uint8_t data_recv[128] = {0};
+  float snr;
+  int rssi;
+  EventBits_t evt_bits;
+  sx1278_init();
+	sx1278_evt_group = xEventGroupCreate();
+	while(1)
 	{
-		// sx1278_start_recv_data();
-		// evt_bits = xEventGroupWaitBits(sx1278_evt_group, SX1278_DIO0_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
-		// if(evt_bits & SX1278_DIO0_BIT)
-		// {
-		// 	if(sx1278_recv_data(data_recv, &rssi, &snr, &packet) == SX1278_OK)
-		// 	{
-		// 		char data_log[100];
-		// 		char snr_arr[10];
-		// 		ftoa((double)snr, snr_arr, 2);
-		// 		sprintf(data_log, "Packet rssi: %d, snr: %s", rssi, snr_arr);
-		// 		LOG(TAG, data_log);
-		// 		respond.gate_id = packet.gate_id;
-		// 		respond.period.float_val = packet.period.float_val;
-		// 		respond.threshold.float_val = packet.threshold.float_val;
-		// 		respond.temp.float_val = (float)10.0;
-		// 		respond.battery.float_val = (float)3.75;
-		// 		listen_before_talk();
-		// 		send_respond(UPLINK_TX_RESPOND_OPCODE, respond, data_send);
-		// 	}
-		// 	else
-		// 	{
-		// 	}
-		// }
-    vTaskDelay(100 / portTICK_RATE_MS);
+		sx1278_start_recv_data();
+		evt_bits = xEventGroupWaitBits(sx1278_evt_group, SX1278_DIO0_BIT, pdTRUE, pdFALSE, portMAX_DELAY);
+		if(evt_bits & SX1278_DIO0_BIT)
+		{
+			if(sx1278_recv_data(data_recv, &rssi, &snr, &sx1278_node) == SX1278_OK)
+			{
+				char data_log[100];
+				char snr_arr[10];
+				ftoa((double)snr, snr_arr, 2);
+				sprintf(data_log, "Packet rssi: %d, snr: %s", rssi, snr_arr);
+				LOG(TAG, data_log);
+				listen_before_talk();
+				send_respond(UPLINK_TX_RESPOND_OPCODE, sx1278_node, data_send);
+			}
+			else
+			{
+        //Do nothing
+			}
+		}
 	}
 }
 
@@ -132,99 +120,107 @@ void peripheral_task(void *param)
   DS18B20_Init(DS18B20_Resolution_12bits);
   displayInit();
 
-  uint32_t adc[22] = {0};
   HAL_ADC_Start_DMA(&hadc1, adc, 20);
   
+  static uint8_t sw = 0;
   uint16_t ADC_VREF_mV = 3300;
-
-
-  static uint8_t swtch = 0;
 
   HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
 
+  float temperature = 0;
+  float battery = 0;
+
+  HAL_TIM_Base_Start_IT(&htim4);
+
   uint32_t timeKeeper0 = HAL_GetTick();
-  uint32_t timeKeeper1 = HAL_GetTick();
+  uint32_t timeKeeper1 = HAL_GetTick() - 2000;
   uint32_t timeKeeper2 = HAL_GetTick();
+  uint32_t timeKeeper3 = HAL_GetTick();
 
 	while(1)
 	{
-
-    // if (HAL_GPIO_ReadPin(BT0_GPIO_Port, BT0_Pin) == 0)
-    // {
-    //   vTaskDelay(150 / portTICK_RATE_MS);
-    //   if (HAL_GPIO_ReadPin(BT0_GPIO_Port, BT0_Pin) == 0)
-    //   {
-		// 	  // todo: Start measuring
-    //     // HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
-    //     status_measure = START_MEASURING;
-    //   }
-    // }
-    // else if (HAL_GPIO_ReadPin(BT0_GPIO_Port, BT1_Pin) == 0)
-    // {
-    //   vTaskDelay(150 / portTICK_RATE_MS);
-    //   if (HAL_GPIO_ReadPin(BT0_GPIO_Port, BT1_Pin) == 0)
-    //   {
-		// 	  // todo: Stop measuring
-    //     // HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-    //     status_measure = STOP_MEASURING;
-    //   }
-    // }
-    // else if (HAL_GPIO_ReadPin(BT0_GPIO_Port, BT2_Pin) == 0)
-    // {
-    //   vTaskDelay(150 / portTICK_RATE_MS);
-    //   if (HAL_GPIO_ReadPin(BT0_GPIO_Port, BT2_Pin) == 0)
-    //   {
-		// 	  // todo: Display voltage battery...
-    //   }
-    // } 
-
-    if ((HAL_GetTick() - timeKeeper0) >= 1000)
+    timeKeeper0 = HAL_GetTick();
+    timeKeeper1 = HAL_GetTick() - 2000;
+    timeKeeper2 = HAL_GetTick();
+    timeKeeper3 = HAL_GetTick();
+    while ((HAL_GetTick() - timeKeeper2) <= 6000)
     {
-      DS18B20_ReadAll();
-      DS18B20_StartAll();
-      DS18B20_GetTemperature(0, &temperature);
-      timeKeeper0 = HAL_GetTick();
-    }
+      if ((HAL_GetTick() - timeKeeper0) >= 1000)
+      {
+        DS18B20_Read(0, &temperature);
+        DS18B20_Start(0);
+        timeKeeper0 = HAL_GetTick();
+      }
 
-    if (((HAL_GetTick() - timeKeeper1) >= 3000) && (swtch == 0))
-    {
-      if ((temperature <= 50) && (temperature >= 0))
+      if ((btPressed == 0) && (temperature <= 100) && (temperature >= -10))
+      {
         displayFloat(temperature);
-      swtch = 1;
-      timeKeeper1 = HAL_GetTick();
-    }
-    if (((HAL_GetTick() - timeKeeper1) >= 3000) && (swtch == 1))
-    {
-      if ((battery <= 4.5) && (battery >= 2.4))
+      }
+      else if ((btPressed == 1) && (battery <= 4.5) && (battery >= 2.4))
+      {
         displayFloat(battery);
-      swtch = 0;
-      timeKeeper1 = HAL_GetTick();
+      }
+      else if (btPressed == 2)
+      {
+        displayInt(sx1278_node.node_id);
+      }
+      else if (btPressed == 0xFF)
+      {
+        if ((HAL_GetTick() - timeKeeper1) >= 2000)
+        {
+          if (sw == 0)
+          {
+            displayInt(sx1278_node.node_id);
+            sw = 1;
+          }
+          else if (sw == 1)
+          {
+            displayFloat(temperature);
+            sw = 2;
+          }
+          else if (sw == 2)
+          {
+            displayFloat(battery);
+            sw = 0;
+          }
+          timeKeeper1 = HAL_GetTick();
+        }
+      }
+
+      adc[20] = 0;
+      adc[21] = 0;
+      for (uint8_t i = 0; i < 20; i += 2)
+      {
+        adc[20] += adc[i];
+        adc[21] += adc[i+1];
+      }
+      adc[20] /= 10;
+      adc[21] /= 10;
+
+      ADC_VREF_mV = (uint16_t)(VREFINT * ADC_RESOLUTION * 1000 / adc[21]);
+      battery = (float)(((float)adc[20] * RATIO * ADC_VREF_mV / ADC_RESOLUTION) / 1000) - 0.1;
+      ftoa((double)temperature, sx1278_node.temp, 2);
+      ftoa((double)battery, sx1278_node.battery, 2);
+      HAL_Delay(100);
     }
-
-    // if ()
-
-    adc[20] = 0;
-    adc[21] = 0;
-    for (uint8_t i = 0; i < 20; i += 2)
-    {
-      adc[20] += adc[i];
-      adc[21] += adc[i+1];
-    }
-    adc[20] /= 10;
-    adc[21] /= 10;
-
-    ADC_VREF_mV = (uint16_t)(VREFINT * ADC_RESOLUTION * 1000 / adc[21]);
-    battery = (float)((float)adc[20] * RATIO * ADC_VREF_mV / ADC_RESOLUTION) / 1000;
-
-		// vTaskDelay(1 / portTICK_RATE_MS);
-    HAL_Delay(1);
-
+    HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+    displayInt(0);
+    btPressed = 0xFF;
+    sw = 0;
+    isButtonPress = false;
+    isSleep = true;
+		vTaskDelay(1 / portTICK_RATE_MS);
 	}
 }
 
-
+void vTimerCallback(TimerHandle_t xTimer)
+{
+  
+}
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -234,34 +230,38 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 /* GetIdleTaskMemory prototype (linked to static allocation support) */
 void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
 
-/* USER CODE BEGIN PREPOSTSLEEP */
-__weak void PreSleepProcessing(uint32_t *ulExpectedIdleTime)
+/* GetTimerTaskMemory prototype (linked to static allocation support) */
+void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer, StackType_t **ppxTimerTaskStackBuffer, uint32_t *pulTimerTaskStackSize );
+
+/* Hook prototypes */
+void vApplicationIdleHook(void);
+
+/* USER CODE BEGIN 2 */
+__weak void vApplicationIdleHook( void )
 {
-/* place for user code */
-  HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+    /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
+    to 1 in FreeRTOSConfig.h. It will be called on each iteration of the idle
+    task. It is essential that code added to this hook function never attempts
+    to block in any way (for example, call xQueueReceive() with a block time
+    specified, or call vTaskDelay()). If the application makes use of the
+    vTaskDelete() API function (as this demo application does) then it is also
+    important that vApplicationIdleHook() is permitted to return to its calling
+    function, because it is the responsibility of the idle task to clean up
+    memory allocated by the kernel to any task that has since been deleted. */
 
-  displayStop();
-
-  HAL_SuspendTick();
-}
-
-__weak void PostSleepProcessing(uint32_t *ulExpectedIdleTime)
-{
-/* place for user code */
-  HAL_ResumeTick();
-  HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
-  //indicate waking up 
-  for (uint8_t i = 0; i < 6; i++)
+  if (isSleep == true)
   {
-    HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
-  }
-  HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
+    HAL_ADC_Stop_DMA(&hadc1);
+    displayStop();
 
-  displayResume();
+    HAL_SuspendTick();
+
+    HAL_PWR_EnterSLEEPMode(1, PWR_SLEEPENTRY_WFI);
+  }
+
+
 }
-/* USER CODE END PREPOSTSLEEP */
+/* USER CODE END 2 */
 
 /* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
 static StaticTask_t xIdleTaskTCBBuffer;
@@ -275,6 +275,19 @@ void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackTy
   /* place for user code */
 }
 /* USER CODE END GET_IDLE_TASK_MEMORY */
+
+/* USER CODE BEGIN GET_TIMER_TASK_MEMORY */
+static StaticTask_t xTimerTaskTCBBuffer;
+static StackType_t xTimerStack[configTIMER_TASK_STACK_DEPTH];
+
+void vApplicationGetTimerTaskMemory( StaticTask_t **ppxTimerTaskTCBBuffer, StackType_t **ppxTimerTaskStackBuffer, uint32_t *pulTimerTaskStackSize )
+{
+  *ppxTimerTaskTCBBuffer = &xTimerTaskTCBBuffer;
+  *ppxTimerTaskStackBuffer = &xTimerStack[0];
+  *pulTimerTaskStackSize = configTIMER_TASK_STACK_DEPTH;
+  /* place for user code */
+}
+/* USER CODE END GET_TIMER_TASK_MEMORY */
 
 /**
   * @brief  FreeRTOS initialization
@@ -296,6 +309,7 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
+  // xTimerCreate("stimer0", 2000/portTICK_RATE_MS, pdTRUE, NULL, vTimerCallback);
   /* USER CODE END RTOS_TIMERS */
 
   /* USER CODE BEGIN RTOS_QUEUES */
@@ -309,8 +323,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
-	// xTaskCreate(&sx1278_task, "SX1278", 512, NULL, 10, NULL);
-	xTaskCreate(&peripheral_task, "PERIPHERAL", 512, NULL, 9, NULL);
+  xTaskCreate(&sx1278_task, "SX1278", 256, NULL, 9, NULL);
+  xTaskCreate(&peripheral_task, "PERIPHERAL", 256, NULL, 10, NULL);
   /* USER CODE END RTOS_THREADS */
 
 }
@@ -338,31 +352,41 @@ void StartDefaultTask(void const * argument)
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if ((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 0) && (isButtonPress == false))
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+  if ((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 0) && (isButtonPress == false) && (GPIO_Pin != GPIO_PIN_12))
   {
     isButtonPress = true;
-    __HAL_TIM_SetCounter(&htim4, 0);
-    HAL_TIM_Base_Start_IT(&htim4);
-  }
-  if ((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 1) && (isButtonPress == true))
-  {
-    if (__HAL_TIM_GetCounter(&htim4) <= 500)
+    if (GPIO_Pin == BT0_Pin)
     {
-
+      btPressed = 0;
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
     }
+    else if (GPIO_Pin == BT1_Pin)
+    {
+      btPressed = 1;
+      HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+    }
+    else if (GPIO_Pin == BT2_Pin)
+    {
+      btPressed = 2;
+      HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_RESET);
+    }
+    displayResume();
   }
 
-  if (GPIO_Pin == BT0_Pin)
-  {
+  if((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 1) && (GPIO_Pin == GPIO_PIN_12))
+	{
+		xEventGroupSetBitsFromISR(sx1278_evt_group, SX1278_DIO0_BIT, &xHigherPriorityTaskWoken);
+	}
 
-  }
-  else if (GPIO_Pin == BT1_Pin)
+  if (isSleep == true)
   {
-
-  }
-  else if (GPIO_Pin == BT2_Pin)
-  {
+    HAL_ResumeTick();
+    HAL_ADC_Start_DMA(&hadc1, adc, 20);
+    // displayResume();
     
+    isSleep = false;
   }
 }
 
@@ -385,7 +409,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
   if (htim->Instance == TIM4)
   {
-
+    if (isSleep == true)
+    {
+      HAL_ResumeTick();
+      HAL_ADC_Start_DMA(&hadc1, adc, 20);
+      // displayResume();
+      // HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_RESET);
+      // HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
+      // HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+      isSleep = false;
+    }
   }
 
 

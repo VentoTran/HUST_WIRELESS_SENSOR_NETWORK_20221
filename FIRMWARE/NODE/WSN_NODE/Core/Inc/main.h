@@ -93,12 +93,6 @@ void Error_Handler(void);
 #define BT2_Pin GPIO_PIN_5
 #define BT2_GPIO_Port GPIOB
 #define BT2_EXTI_IRQn EXTI9_5_IRQn
-#define LoRa_EXTI0_Pin GPIO_PIN_6
-#define LoRa_EXTI0_GPIO_Port GPIOB
-#define LoRa_EXTI0_EXTI_IRQn EXTI9_5_IRQn
-#define LoRa_EXTI1_Pin GPIO_PIN_7
-#define LoRa_EXTI1_GPIO_Port GPIOB
-#define LoRa_EXTI1_EXTI_IRQn EXTI9_5_IRQn
 #define DIG0_Pin GPIO_PIN_8
 #define DIG0_GPIO_Port GPIOB
 #define DIG1_Pin GPIO_PIN_9
