@@ -54,7 +54,7 @@
 
 #define VREFINT             (1.21)
 #define ADC_RESOLUTION      (4095.0)
-#define RATIO               (1.3)
+#define RATIO               (1.3216)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -152,26 +152,20 @@ void peripheral_task(void *param)
 
   __HAL_TIM_SetCounter(&htim4, 0);
   __HAL_TIM_CLEAR_IT(&htim4, TIM_IT_UPDATE);
-  HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
-  HAL_RTC_SetAlarm_IT(&hrtc, &salarm, RTC_FORMAT_BCD);
-  // xSemaphoreTake(xSema, 10);
 
   volatile uint32_t timeKeeper0 = HAL_GetTick();
-  volatile uint32_t timeKeeper1 = HAL_GetTick() - 2000;
+  volatile uint32_t timeKeeper1 = HAL_GetTick() - 1000;
   volatile uint32_t timeKeeper2 = HAL_GetTick();
-  volatile uint16_t timeLoop = 3000;
 
 	while(1)
 	{
-    timeKeeper0 = HAL_GetTick();
-    timeKeeper1 = HAL_GetTick() - 2000;
-    timeKeeper2 = HAL_GetTick();
     HAL_ADC_Start_DMA(&hadc1, adc, 20);
-    if (isIndicate == true) timeLoop = 6000;
-    else timeLoop = 3000;
     HAL_RTC_SetTime(&hrtc, &stime, RTC_FORMAT_BCD);
     HAL_RTC_SetAlarm_IT(&hrtc, &salarm, RTC_FORMAT_BCD);
-    while ((HAL_GetTick() - timeKeeper2) <= timeLoop)
+    timeKeeper0 = HAL_GetTick();
+    timeKeeper1 = HAL_GetTick() - 1000;
+    timeKeeper2 = HAL_GetTick();
+    while ((HAL_GetTick() - timeKeeper2) <= 3000)
     {
       if ((HAL_GetTick() - timeKeeper0) >= 1000)
       {
@@ -180,42 +174,31 @@ void peripheral_task(void *param)
         timeKeeper0 = HAL_GetTick();
       }
 
-      if (isIndicate == true)
+      if ((btPressed == 0) && (temperature <= 125) && (temperature >= -55))
+        displayFloat(temperature);
+      else if ((btPressed == 1) && (battery <= 4.5) && (battery >= 2.4))
+        displayFloat(battery);
+      else if (btPressed == 2)
+        displayInt(sx1278_node.node_id);
+
+      if ((isIndicate == true) && (btPressed == 0xFF) && ((HAL_GetTick() - timeKeeper1) >= 1000))
       {
-        if ((btPressed == 0) && (temperature <= 100) && (temperature >= -10))
-        {
-          displayFloat(temperature);
-        }
-        else if ((btPressed == 1) && (battery <= 4.5) && (battery >= 2.4))
-        {
-          displayFloat(battery);
-        }
-        else if (btPressed == 2)
+        if (sw == 0 )
         {
           displayInt(sx1278_node.node_id);
+          sw = 1;
         }
-        else if (btPressed == 0xFF)
+        else if ((sw == 1) && (temperature <= 125) && (temperature >= -55))
         {
-          if ((HAL_GetTick() - timeKeeper1) >= 2000)
-          {
-            if (sw == 0)
-            {
-              displayInt(sx1278_node.node_id);
-              sw = 1;
-            }
-            else if (sw == 1)
-            {
-              displayFloat(temperature);
-              sw = 2;
-            }
-            else if (sw == 2)
-            {
-              displayFloat(battery);
-              sw = 0;
-            }
-            timeKeeper1 = HAL_GetTick();
-          }
+          displayFloat(temperature);
+          sw = 2;
         }
+        else if ((sw == 2) && (battery <= 4.5) && (battery >= 2.4))
+        {
+          displayFloat(battery);
+          sw = 0;
+        }
+        timeKeeper1 = HAL_GetTick();
       }
 
       adc[20] = 0;
@@ -228,7 +211,7 @@ void peripheral_task(void *param)
       adc[20] /= 10;
       adc[21] /= 10;
 
-      ADC_VREF_mV = (uint16_t)(VREFINT * ADC_RESOLUTION * 1000 / adc[21]) - 140;
+      ADC_VREF_mV = (uint16_t)(VREFINT * ADC_RESOLUTION * 1000 / adc[21]) - 130;
       battery = (float)(((float)adc[20] * RATIO * ADC_VREF_mV / ADC_RESOLUTION) / 1000);
       ftoa((double)temperature, sx1278_node.temp, 2);
       ftoa((double)battery, sx1278_node.battery, 2);
@@ -237,13 +220,14 @@ void peripheral_task(void *param)
     HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-    displayInt(0);
+    displayStop();
+    HAL_ADC_Stop_DMA(&hadc1);
+
     btPressed = 0xFF;
     sw = 0;
     isButtonPress = false;
     isSleep = true;
-    HAL_ADC_Stop_DMA(&hadc1);
-    displayStop();
+
     HAL_IWDG_Refresh(&hiwdg);
     if (uxSemaphoreGetCount(xSema) > 0)   xSemaphoreTake(xSema, portMAX_DELAY);
     if (xSemaphoreTake(xSema, portMAX_DELAY) == pdTRUE);
@@ -462,7 +446,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     displayResume();
   }
 
-  if((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 1) && (GPIO_Pin == GPIO_PIN_12))
+  if ((HAL_GPIO_ReadPin(GPIOB, GPIO_Pin) == 1) && (GPIO_Pin == GPIO_PIN_12))
 	{
 		xEventGroupSetBitsFromISR(sx1278_evt_group, SX1278_DIO0_BIT, &xHigherPriorityTaskWoken);
 	}

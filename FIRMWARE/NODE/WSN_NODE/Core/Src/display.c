@@ -11,11 +11,16 @@
 
 
 #include "display.h"
+#include "stdbool.h"
+#include "stdlib.h"
+
 
 static const uint8_t NumberTable[10] = {0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07, 0x7F, 0x6F};
 static const uint8_t DP = 0x80;
+static const uint8_t MN = 0x40;
 static uint8_t digBuffer[4] = {0};
 static uint8_t posPoint = 5;
+
 
 uint8_t digIndex = 0;
 
@@ -38,21 +43,30 @@ void displayFloat(float f)
 	int d = 0;
 	if (n >= 10)
 	{
-		d = (int)((float)(f - n) * 100);
+		d = abs((f - n) * 100);
 		digBuffer[3] = (uint8_t)(n / 10);
 		digBuffer[2] = (uint8_t)(n % 10);
 		digBuffer[1] = (uint8_t)(d / 10);
 		digBuffer[0] = (uint8_t)(d % 10);
 		posPoint = 2;
 	}
-	else
+	else if ((n >= 0) && (n < 10))
 	{
-		d = (int)((float)(f - n) * 1000);
+		d = abs((f - n) * 1000);
 		digBuffer[3] = (uint8_t)(n);
 		digBuffer[2] = (uint8_t)(d / 100);
 		digBuffer[1] = (uint8_t)((d % 100) / 10);
 		digBuffer[0] = (uint8_t)(d % 10);
 		posPoint = 3;
+	}
+	else if ((n < 0) && (n > -10))
+	{
+		d = abs((f - n) * 100);
+		digBuffer[3] = MN;
+		digBuffer[2] = (uint8_t)(n);
+		digBuffer[1] = (uint8_t)(d / 100);
+		digBuffer[0] = (uint8_t)((d % 100) / 10);
+		posPoint = 2;
 	}
 }
 
@@ -75,8 +89,8 @@ void displayDigit(uint8_t dig)
 		case 0: {
 			HC595_SendByte(NumberTable[digBuffer[0]]);
 			HAL_GPIO_WritePin(DIG0_GPIO_Port, DIG0_Pin, GPIO_PIN_SET);
-			// HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, GPIO_PIN_RESET);
-			// HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, GPIO_PIN_RESET);
 			HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, GPIO_PIN_RESET);
 			break;
 		}
@@ -84,8 +98,8 @@ void displayDigit(uint8_t dig)
 			HC595_SendByte(NumberTable[digBuffer[1]]);
 			HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(DIG0_GPIO_Port, DIG0_Pin, GPIO_PIN_RESET);
-			// HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, GPIO_PIN_RESET);
-			// HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, GPIO_PIN_RESET);
 			break;
 		}
 		case 2: {
@@ -96,8 +110,8 @@ void displayDigit(uint8_t dig)
 
 			HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, GPIO_PIN_RESET);
-			// HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG0_Pin, GPIO_PIN_RESET);
-			// HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG0_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, GPIO_PIN_RESET);
 			break;
 		}
 		case 3: {
@@ -107,9 +121,9 @@ void displayDigit(uint8_t dig)
 				HC595_SendByte(NumberTable[digBuffer[3]]);
 			
 			HAL_GPIO_WritePin(DIG3_GPIO_Port, DIG3_Pin, GPIO_PIN_SET);
-			// HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG1_GPIO_Port, DIG1_Pin, GPIO_PIN_RESET);
 			HAL_GPIO_WritePin(DIG2_GPIO_Port, DIG2_Pin, GPIO_PIN_RESET);
-			// HAL_GPIO_WritePin(DIG0_GPIO_Port, DIG0_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(DIG0_GPIO_Port, DIG0_Pin, GPIO_PIN_RESET);
 			break;
 		}
 		default:	break;
