@@ -127,6 +127,7 @@ void displayStop(void)
 
 void displayResume(void)
 {
+	__HAL_TIM_SET_COUNTER(&htim3, 0);
 	HAL_TIM_Base_Start_IT(&htim3);
 }
 

@@ -10,7 +10,7 @@ Ds18b20Sensor_t	ds18b20[_DS18B20_MAX_SENSORS];
 
 OneWire_t OneWire;
 uint8_t	OneWireDevices;
-uint8_t TempSensorCount=0;
+uint8_t TempSensorCount = 0;
 
 /* Start conversion of @number sensor */
 uint8_t DS18B20_Start(uint8_t number)

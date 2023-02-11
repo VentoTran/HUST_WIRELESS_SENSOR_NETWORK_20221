@@ -135,6 +135,9 @@ standard names. */
 #define INCLUDE_xEventGroupSetBitFromISR  (1)
 #define INCLUDE_xTimerPendFunctionCall    (1)
 
+#define configEXPECTED_IDLE_TIME_BEFORE_SLEEP   (50)
+
+
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */
